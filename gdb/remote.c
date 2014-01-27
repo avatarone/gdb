@@ -956,6 +956,80 @@ set_memory_packet_size (char *args, struct memory_packet_config *config)
   config->size = size;
 }
 
+static int
+remote_checksum(struct gdbarch *arch, CORE_ADDR memaddr, int len)
+{
+	char *p, *endbuf;
+	struct remote_state *rs;
+	gdb_byte b;
+
+	printf_filtered (_("Requesting checksum for %08lx %08x.\n"), memaddr, len);
+
+	rs = get_remote_state ();
+	p = rs->buf;
+	if (!rs || !p) {
+		printf_filtered (_("Not connected.\n"));
+		return -1;
+	}
+	//endbuf = rs->buf + get_remote_packet_size ();
+
+	*(p++) = 'u';
+	/* big endian */
+	b = (memaddr >> 24) & 0xff;
+	bin2hex(&b, p, 1); p += 2;
+	b = (memaddr >> 16) & 0xff;
+	bin2hex(&b, p, 1); p += 2;
+	b = (memaddr >> 8) & 0xff;
+	bin2hex(&b, p, 1); p += 2;
+	b = memaddr & 0xff;
+	bin2hex(&b, p, 1); p += 2;
+
+	*(p++) = ',';
+
+	b = (len >> 24) & 0xff;
+	bin2hex(&b, p, 1); p += 2;
+	b = (len >> 16) & 0xff;
+	bin2hex(&b, p, 1); p += 2;
+	b = (len >> 8) & 0xff;
+	bin2hex(&b, p, 1); p += 2;
+	b = len & 0xff;
+	bin2hex(&b, p, 1); p += 2;
+
+	putpkt (rs->buf);
+	getpkt (&rs->buf, &rs->buf_size, 0);
+	printf_filtered (_("checksum is: 0x%s.\n"), rs->buf);
+	return 0;
+}
+
+static void
+show_checksum(char *args, int from_tty)
+{
+	int checksum;
+	char **argv;
+	CORE_ADDR addr;
+	int len;
+
+	if (!args) {
+		printf_filtered(_("address size.\n"));
+		return;
+	}
+	argv = gdb_buildargv (args);
+	if (!argv[0] || !argv[1]) {
+		printf_filtered(_("missing param.\n"));
+		return;
+	}
+	if (strlen(argv[0]) > 8 || strlen(argv[1]) > 8) {
+		printf_filtered(_("param too big.\n"));
+		return;
+	}
+
+	printf_filtered(_("params: %s %s.\n"), argv[0], argv[1]);
+	addr = strtol(argv[0], NULL, 16);
+	len = strtol(argv[1], NULL, 16);
+	checksum = remote_checksum(NULL, addr, len);
+	printf_filtered (_("The checksum is %08x.\n"), checksum);
+}
+
 static void
 show_memory_packet_size (struct memory_packet_config *config)
 {
@@ -1285,6 +1359,7 @@ enum {
   PACKET_Qbtrace_off,
   PACKET_Qbtrace_bts,
   PACKET_qXfer_btrace,
+  PACKET_U,
   PACKET_MAX
 };
 
@@ -11442,6 +11517,7 @@ Specify the serial device it is connected to\n\
   remote_ops.to_disable_btrace = remote_disable_btrace;
   remote_ops.to_teardown_btrace = remote_teardown_btrace;
   remote_ops.to_read_btrace = remote_read_btrace;
+  remote_ops.to_checksum = remote_checksum;
 }
 
 /* Set up the extended remote vector by making a copy of the standard
@@ -11761,6 +11837,10 @@ further restriction and ``limit'' to enable that restriction."),
 	   show_memory_read_packet_size,
 	   _("Show the maximum number of bytes per memory-read packet."),
 	   &remote_show_cmdlist);
+  add_cmd("checksum", no_class,
+		  show_checksum,
+		  _("Compute checksum of a remote buffer."),
+		  &remote_show_cmdlist);
 
   add_setshow_zinteger_cmd ("hardware-watchpoint-limit", no_class,
 			    &remote_hw_watchpoint_limit, _("\
@@ -11800,6 +11880,8 @@ Show the maximum size of the address (in bits) in a memory packet."), NULL,
 
   add_packet_config_cmd (&remote_protocol_packets[PACKET_X],
 			 "X", "binary-download", 1);
+  add_packet_config_cmd (&remote_protocol_packets[PACKET_U],
+			 "U", "checksum", 0);
 
   add_packet_config_cmd (&remote_protocol_packets[PACKET_vCont],
 			 "vCont", "verbose-resume", 0);

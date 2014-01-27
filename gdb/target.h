@@ -461,6 +461,7 @@ struct target_ops
 
     void (*to_files_info) (struct target_ops *);
     int (*to_insert_breakpoint) (struct gdbarch *, struct bp_target_info *);
+	int (*to_checksum) (struct gdbarch *, CORE_ADDR memaddr, int len);
     int (*to_remove_breakpoint) (struct gdbarch *, struct bp_target_info *);
     int (*to_can_use_hw_breakpoint) (int, int, int);
     int (*to_ranged_break_num_registers) (struct target_ops *);
