@@ -8770,7 +8770,8 @@ gdb_print_insn_arm (bfd_vma memaddr, disassemble_info *info)
    abi-specific code during establishment of the gdbarch vector.  */
 
 #define ARM_LE_BREAKPOINT {0xFE,0xDE,0xFF,0xE7}
-#define ARM_BE_BREAKPOINT {0xE7,0xFF,0xDE,0xFE}
+//#define ARM_BE_BREAKPOINT {0xE7,0xFF,0xDE,0xFE}
+#define ARM_BE_BREAKPOINT {0xE1,0x20,0xbe,0x74}
 #define THUMB_LE_BREAKPOINT {0xbe,0xbe}
 #define THUMB_BE_BREAKPOINT {0xbe,0xbe}
 
@@ -10248,6 +10249,7 @@ arm_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   /* On ARM targets char defaults to unsigned.  */
   set_gdbarch_char_signed (gdbarch, 0);
+  set_gdbarch_software_single_step(gdbarch, arm_software_single_step);
 
   /* Note: for displaced stepping, this includes the breakpoint, and one word
      of additional scratch space.  This setting isn't used for anything beside
