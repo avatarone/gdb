@@ -998,7 +998,7 @@ remote_checksum(struct gdbarch *arch, CORE_ADDR memaddr, int len)
 	putpkt (rs->buf);
 	getpkt (&rs->buf, &rs->buf_size, 0);
 	printf_filtered (_("checksum is: 0x%s.\n"), rs->buf);
-	return 0;
+	return strtol(rs->buf, NULL, 16);
 }
 
 static void
@@ -1008,6 +1008,7 @@ show_checksum(char *args, int from_tty)
 	char **argv;
 	CORE_ADDR addr;
 	int len;
+	struct ui_out *uiout = current_uiout;
 
 	if (!args) {
 		printf_filtered(_("address size.\n"));
@@ -1027,7 +1028,8 @@ show_checksum(char *args, int from_tty)
 	addr = strtol(argv[0], NULL, 16);
 	len = strtol(argv[1], NULL, 16);
 	checksum = remote_checksum(NULL, addr, len);
-	printf_filtered (_("The checksum is %08x.\n"), checksum);
+	printf_filtered (_("The checksum is 0x%08x.\n"), checksum);
+	ui_out_field_int(uiout, "value", checksum);
 }
 
 static void
