@@ -1981,6 +1981,7 @@ arm_scan_prologue (struct frame_info *this_frame,
       CORE_ADDR frame_loc;
       LONGEST return_value;
 
+	  return;
       frame_loc = get_frame_register_unsigned (this_frame, ARM_FP_REGNUM);
       if (!safe_read_memory_integer (frame_loc, 4, byte_order, &return_value))
         return;
