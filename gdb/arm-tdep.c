@@ -67,6 +67,7 @@
 #include "features/arm-with-neon.c"
 
 static int arm_debug;
+static int arm_frameregister = 0;
 
 /* Macros for setting and testing a bit in a minimal symbol that marks
    it as Thumb function.  The MSB of the minimal symbol's "info" field
@@ -1981,7 +1982,10 @@ arm_scan_prologue (struct frame_info *this_frame,
       CORE_ADDR frame_loc;
       LONGEST return_value;
 
-	  return;
+      if (!arm_frameregister)
+      {
+    	return;
+      }
       frame_loc = get_frame_register_unsigned (this_frame, ARM_FP_REGNUM);
       if (!safe_read_memory_integer (frame_loc, 4, byte_order, &return_value))
         return;
@@ -10576,6 +10580,15 @@ vfp - VFP co-processor."),
 			   NULL,
 			   NULL, /* FIXME: i18n: "ARM debugging is %s.  */
 			   &setdebuglist, &showdebuglist);
+
+  /* Frame register */
+  add_setshow_boolean_cmd("frame-register", class_support, &arm_frameregister,
+		       _("Set use of ARM frame register."),
+		       _("Show use of ARM frame register."),
+		       _("When on, the ARM frame register (r12) is dereferenced."),
+		       NULL,
+		       NULL,
+		       &setarmcmdlist, &showarmcmdlist);
 }
 
 /* ARM-reversible process record data structures.  */
