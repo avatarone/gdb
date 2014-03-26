@@ -131,6 +131,10 @@ static const char *const arm_abi_strings[] =
 static enum arm_abi_kind arm_abi_global = ARM_ABI_AUTO;
 static const char *arm_abi_string = "auto";
 
+/* The type of software breakpoint to use. */
+static const char *arm_sw_breakpoint_string = "bkpt";
+static enum arm_sw_breakpoint_kind arm_sw_breakpoint = ARM_SWBKPT_BKPT;
+
 /* The execution mode to assume.  */
 static const char *const arm_mode_strings[] =
   {
@@ -138,6 +142,14 @@ static const char *const arm_mode_strings[] =
     "arm",
     "thumb",
     NULL
+  };
+
+/* The type of software breakpoint to use */
+static const char *const arm_sw_breakpoint_strings[] =
+  {
+	"bkpt",
+	"invalid",
+	NULL
   };
 
 static const char *arm_fallback_mode_string = "auto";
@@ -8774,16 +8786,23 @@ gdb_print_insn_arm (bfd_vma memaddr, disassemble_info *info)
    instruction to force a trap.  This can be handled by by the
    abi-specific code during establishment of the gdbarch vector.  */
 
-#define ARM_LE_BREAKPOINT {0xFE,0xDE,0xFF,0xE7}
-//#define ARM_BE_BREAKPOINT {0xE7,0xFF,0xDE,0xFE}
-#define ARM_BE_BREAKPOINT {0xE1,0x20,0xbe,0x74}
-#define THUMB_LE_BREAKPOINT {0xbe,0xbe}
-#define THUMB_BE_BREAKPOINT {0xbe,0xbe}
+#define ARM_LE_BKPT_BREAKPOINT {0x74,0xBE,0x20,0xE1}
+#define ARM_LE_INV_BREAKPOINT {0xF0,0x01,0xF0,0xE7}
+#define ARM_BE_INV_BREAKPOINT {0xE7,0xF0,0x01,0xF0}
+#define ARM_BE_BKPT_BREAKPOINT {0xE1,0x20,0xBE,0x74}
+#define THUMB_LE_BKPT_BREAKPOINT {0xbe,0xbe}
+#define THUMB_BE_BKPT_BREAKPOINT {0xbe,0xbe}
+#define THUMB_LE_INV_BREAKPOINT {0x01,0xde}
+#define THUMB_BE_INV_BREAKPOINT {0xde,0x01}
 
-static const char arm_default_arm_le_breakpoint[] = ARM_LE_BREAKPOINT;
-static const char arm_default_arm_be_breakpoint[] = ARM_BE_BREAKPOINT;
-static const char arm_default_thumb_le_breakpoint[] = THUMB_LE_BREAKPOINT;
-static const char arm_default_thumb_be_breakpoint[] = THUMB_BE_BREAKPOINT;
+static const char arm_inv_arm_le_breakpoint[] = ARM_LE_INV_BREAKPOINT;
+static const char arm_inv_arm_be_breakpoint[] = ARM_BE_INV_BREAKPOINT;
+static const char arm_bkpt_arm_le_breakpoint[] = ARM_LE_BKPT_BREAKPOINT;
+static const char arm_bkpt_arm_be_breakpoint[] = ARM_BE_BKPT_BREAKPOINT;
+static const char arm_inv_thumb_le_breakpoint[] = THUMB_LE_INV_BREAKPOINT;
+static const char arm_inv_thumb_be_breakpoint[] = THUMB_BE_INV_BREAKPOINT;
+static const char arm_bkpt_thumb_le_breakpoint[] = THUMB_LE_BKPT_BREAKPOINT;
+static const char arm_bkpt_thumb_be_breakpoint[] = THUMB_BE_BKPT_BREAKPOINT;
 
 /* Determine the type and size of breakpoint to insert at PCPTR.  Uses
    the program counter value to determine whether a 16-bit or 32-bit
@@ -9402,6 +9421,72 @@ The current ARM ABI is \"auto\" (currently \"%s\").\n"),
   else
     fprintf_filtered (file, _("The current ARM ABI is \"%s\".\n"),
 		      arm_abi_string);
+}
+
+static void
+arm_set_sw_breakpoint (char *args, int from_tty,
+	     struct cmd_list_element *c)
+{
+  enum arm_sw_breakpoint_kind arm_swbkpt;
+
+  for (arm_swbkpt = ARM_SWBKPT_BKPT; arm_swbkpt != ARM_SWBKPT_LAST; arm_swbkpt++)
+    if (strcmp (arm_sw_breakpoint_string, arm_sw_breakpoint_strings[arm_swbkpt]) == 0)
+      {
+    	arm_sw_breakpoint = arm_swbkpt;
+	    break;
+      }
+
+  if (arm_sw_breakpoint == ARM_SWBKPT_LAST)
+    internal_error (__FILE__, __LINE__, _("Invalid software breakpoint accepted: %s."),
+		    arm_sw_breakpoint_string);
+
+  struct gdbarch * gdbarch = target_gdbarch();
+  struct gdbarch_tdep * tdep = gdbarch_tdep(gdbarch);
+  switch (arm_sw_breakpoint)
+    {
+      case ARM_SWBKPT_BKPT:
+    	  if (gdbarch_byte_order_for_code(gdbarch) == BFD_ENDIAN_LITTLE)
+    	    {
+    		  tdep->arm_breakpoint = arm_bkpt_arm_le_breakpoint;
+    		  tdep->arm_breakpoint_size = sizeof(arm_bkpt_arm_le_breakpoint);
+    		  tdep->thumb_breakpoint = arm_bkpt_thumb_le_breakpoint;
+    		  tdep->thumb_breakpoint_size = sizeof(arm_bkpt_thumb_le_breakpoint);
+    	    }
+    	  else if (gdbarch_byte_order_for_code(gdbarch) == BFD_ENDIAN_BIG)
+    	    {
+    		  tdep->arm_breakpoint = arm_bkpt_arm_be_breakpoint;
+			  tdep->arm_breakpoint_size = sizeof(arm_bkpt_arm_be_breakpoint);
+			  tdep->thumb_breakpoint = arm_bkpt_thumb_be_breakpoint;
+			  tdep->thumb_breakpoint_size = sizeof(arm_bkpt_thumb_be_breakpoint);
+    	    }
+    	  else
+    	    {
+    		  internal_error (__FILE__, __LINE__,
+    		  		      _("arm_set_sw_breakpoint: unknown breakpoint type."));
+    	    }
+    	  break;
+      case ARM_SWBKPT_INVALID:
+    	  if (gdbarch_byte_order_for_code(gdbarch) == BFD_ENDIAN_LITTLE)
+			{
+			  tdep->arm_breakpoint = arm_inv_arm_le_breakpoint;
+			  tdep->arm_breakpoint_size = sizeof(arm_inv_arm_le_breakpoint);
+			  tdep->thumb_breakpoint = arm_inv_thumb_le_breakpoint;
+			  tdep->thumb_breakpoint_size = sizeof(arm_inv_thumb_le_breakpoint);
+			}
+		  else if (gdbarch_byte_order_for_code(gdbarch) == BFD_ENDIAN_BIG)
+			{
+			  tdep->arm_breakpoint = arm_inv_arm_be_breakpoint;
+			  tdep->arm_breakpoint_size = sizeof(arm_inv_arm_be_breakpoint);
+			  tdep->thumb_breakpoint = arm_inv_thumb_be_breakpoint;
+			  tdep->thumb_breakpoint_size = sizeof(arm_inv_thumb_be_breakpoint);
+			}
+		  else
+			{
+			  internal_error (__FILE__, __LINE__,
+			      		  		      _("arm_set_sw_breakpoint: unknown breakpoint type."));
+			}
+		  break;
+  }
 }
 
 static void
@@ -10232,18 +10317,18 @@ arm_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   switch (info.byte_order_for_code)
     {
     case BFD_ENDIAN_BIG:
-      tdep->arm_breakpoint = arm_default_arm_be_breakpoint;
-      tdep->arm_breakpoint_size = sizeof (arm_default_arm_be_breakpoint);
-      tdep->thumb_breakpoint = arm_default_thumb_be_breakpoint;
-      tdep->thumb_breakpoint_size = sizeof (arm_default_thumb_be_breakpoint);
+      tdep->arm_breakpoint = arm_bkpt_arm_be_breakpoint;
+      tdep->arm_breakpoint_size = sizeof (arm_bkpt_arm_be_breakpoint);
+      tdep->thumb_breakpoint = arm_bkpt_thumb_be_breakpoint;
+      tdep->thumb_breakpoint_size = sizeof (arm_bkpt_thumb_be_breakpoint);
 
       break;
 
     case BFD_ENDIAN_LITTLE:
-      tdep->arm_breakpoint = arm_default_arm_le_breakpoint;
-      tdep->arm_breakpoint_size = sizeof (arm_default_arm_le_breakpoint);
-      tdep->thumb_breakpoint = arm_default_thumb_le_breakpoint;
-      tdep->thumb_breakpoint_size = sizeof (arm_default_thumb_le_breakpoint);
+      tdep->arm_breakpoint = arm_bkpt_arm_le_breakpoint;
+      tdep->arm_breakpoint_size = sizeof (arm_bkpt_arm_le_breakpoint);
+      tdep->thumb_breakpoint = arm_bkpt_thumb_le_breakpoint;
+      tdep->thumb_breakpoint_size = sizeof (arm_bkpt_thumb_le_breakpoint);
 
       break;
 
@@ -10589,6 +10674,15 @@ vfp - VFP co-processor."),
 		       NULL,
 		       NULL,
 		       &setarmcmdlist, &showarmcmdlist);
+
+  add_setshow_enum_cmd("sw-breakpoint-instruction", class_support,
+		       arm_sw_breakpoint_strings, &arm_sw_breakpoint_string,
+ 		       _("Set the software breakpoint instruction to use."),
+ 		       _("Show the software breakpoint instruction used."),
+ 		       _("Choose which software breakpoint instruction should be used."),
+ 		       &arm_set_sw_breakpoint,
+ 		       NULL,
+ 		       &setarmcmdlist, &showarmcmdlist);
 }
 
 /* ARM-reversible process record data structures.  */

@@ -143,6 +143,14 @@ enum arm_abi_kind
   ARM_ABI_LAST
 };
 
+/* Software breakpoint type. */
+enum arm_sw_breakpoint_kind
+{
+  ARM_SWBKPT_BKPT,
+  ARM_SWBKPT_INVALID,
+  ARM_SWBKPT_LAST
+};
+
 /* Convention for returning structures.  */
 
 enum struct_return
