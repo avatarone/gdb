@@ -59,3 +59,7 @@ gdb/data-directory/python/
 gdb/data-directory/syscalls/
 gdb/gdb-gdb.gdb
 opcodes/configure.lineno
+
+.project
+.cproject
+intl/libintl.h
