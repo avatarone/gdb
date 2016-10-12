@@ -10134,7 +10134,7 @@ arm_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 						  arm_pc_names);
       if (is_m)
 	valid_p &= tdesc_numbered_register (feature, tdesc_data,
-					    ARM_PS_REGNUM, "xpsr");
+					    ARM_PS_REGNUM, "cpsr");
       else
 	valid_p &= tdesc_numbered_register (feature, tdesc_data,
 					    ARM_PS_REGNUM, "cpsr");
